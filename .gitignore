@@ -1,0 +1,72 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Wire generated files
+wire_gen.go
+
+# Log files
+logs/
+*.log
+
+# Configuration files (可根据需要调整)
+# config/config.local.yaml
+# config/config.dev.yaml
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+
+# Air (live reload)
+tmp/
+.air.toml
+
+# Build artifacts
+*.o
+*.a
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# OS specific
+Thumbs.db
