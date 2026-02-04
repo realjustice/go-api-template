@@ -155,10 +155,25 @@ main() {
     [ -f "$TEMPLATE_DIR/Makefile" ] && cp "$TEMPLATE_DIR/Makefile" ./
     [ -f "$TEMPLATE_DIR/.gitignore" ] && cp "$TEMPLATE_DIR/.gitignore" ./
     
-    # 使用临时模块名初始化（避免域名格式的网络下载问题）
+    # 复制 go.mod（保持依赖版本一致）
+    print_info "复制依赖配置..."
+    if [ -f "$TEMPLATE_DIR/go.mod" ]; then
+        cp "$TEMPLATE_DIR/go.mod" ./go.mod
+    fi
+    # 注意：不复制 go.sum，让 go mod tidy 重新生成
+    
+    # 修改 go.mod 中的模块名（从 go-api-template 改为临时模块名）
     TEMP_MODULE="golinks-api-template"
     print_info "初始化 Go 模块..."
-    go mod init "$TEMP_MODULE"
+    
+    if [ -f "go.mod" ]; then
+        # 替换模块名
+        sed -i '' "s|module go-api-template|module $TEMP_MODULE|g" go.mod 2>/dev/null || \
+        sed -i "s|module go-api-template|module $TEMP_MODULE|g" go.mod
+    else
+        # 如果模板没有 go.mod，则创建
+        go mod init "$TEMP_MODULE"
+    fi
     
     # 替换导入路径为临时模块名
     print_info "配置导入路径..."
@@ -365,7 +380,10 @@ WIREEOF
     sed -i "s|MODULE_PATH|$TEMP_MODULE|g" cmd/server/wire.go
     
     # 安装依赖（使用临时模块名，不会触发网络下载）
-    print_info "安装依赖..."
+    print_info "下载依赖..."
+    go mod download
+    
+    print_info "整理依赖..."
     go mod tidy
     
     # 现在替换为真实的模块路径
