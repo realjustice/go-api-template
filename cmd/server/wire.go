@@ -76,7 +76,8 @@ func provideRouter(
 	// 全局中间件
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-	r.Use(web.ToGinHandler(mw.RequestID.Handle()))
+	r.Use(web.ToGinHandler(mw.CORS.Handle()))      // CORS 中间件
+	r.Use(web.ToGinHandler(mw.RequestID.Handle())) // RequestID 中间件
 
 	// 处理 404 错误
 	r.NoRoute(web.ToGinHandler(web.NotFoundHandler()))
@@ -93,10 +94,10 @@ func provideRouter(
 		// Demo CRUD 示例接口
 		demos := api.Group("/demos")
 		{
-			demos.GET("", web.ToGinHandler(demoCtrl.GetAll))       // 获取所有 Demo
-			demos.GET("/:id", web.ToGinHandler(demoCtrl.GetByID))  // 获取单个 Demo
-			demos.POST("", web.ToGinHandler(demoCtrl.Create))      // 创建 Demo
-			demos.PUT("/:id", web.ToGinHandler(demoCtrl.Update))   // 更新 Demo
+			demos.GET("", web.ToGinHandler(demoCtrl.GetAll))        // 获取所有 Demo
+			demos.GET("/:id", web.ToGinHandler(demoCtrl.GetByID))   // 获取单个 Demo
+			demos.POST("", web.ToGinHandler(demoCtrl.Create))       // 创建 Demo
+			demos.PUT("/:id", web.ToGinHandler(demoCtrl.Update))    // 更新 Demo
 			demos.DELETE("/:id", web.ToGinHandler(demoCtrl.Delete)) // 删除 Demo
 		}
 	}

@@ -14,6 +14,7 @@ type Config struct {
 	Redis    RedisConfig    `yaml:"redis"`
 	Cache    CacheConfig    `yaml:"cache"`
 	Logger   LoggerConfig   `yaml:"logger"`
+	CORS     CORSConfig     `yaml:"cors"`
 }
 
 // ServerConfig 服务器配置
@@ -24,7 +25,7 @@ type ServerConfig struct {
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Driver       string `yaml:"driver"`        // mysql, postgres
+	Driver       string `yaml:"driver"` // mysql, postgres
 	Host         string `yaml:"host"`
 	Port         int    `yaml:"port"`
 	Username     string `yaml:"username"`
@@ -61,6 +62,14 @@ type LoggerConfig struct {
 	MaxAge     int    `yaml:"max_age"`     // 保留旧日志文件的最大天数
 	Compress   bool   `yaml:"compress"`    // 是否压缩旧日志文件
 	Console    bool   `yaml:"console"`     // 是否同时输出到控制台
+}
+
+// CORSConfig CORS 配置
+type CORSConfig struct {
+	Enabled      bool     `yaml:"enabled"`       // 是否启用 CORS
+	AllowOrigins []string `yaml:"allow_origins"` // 允许的来源
+	AllowMethods []string `yaml:"allow_methods"` // 允许的方法
+	AllowHeaders []string `yaml:"allow_headers"` // 允许的请求头
 }
 
 // LoadConfig 从文件加载配置

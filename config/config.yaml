@@ -34,3 +34,21 @@ logger:
   max_age: 7  # 天
   compress: true
   console: true
+
+cors:
+  enabled: true  # 是否启用 CORS
+  allow_origins:  # 允许的来源（* 表示所有）
+    - "*"
+    # - "http://localhost:3000"
+    # - "https://example.com"
+  allow_methods:  # 允许的 HTTP 方法
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "PATCH"
+    - "OPTIONS"
+  allow_headers:  # 允许的请求头
+    - "Content-Type"
+    - "Authorization"
+    - "X-Request-ID"

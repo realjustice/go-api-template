@@ -23,9 +23,45 @@ Middleware 层提供 HTTP 请求的拦截和预处理功能，在请求到达 Co
 - 不直接操作数据库（通过 Service）
 - 保持简洁和高效
 
-## 📝 示例代码
+## 📝 内置中间件
 
-参考 `request_id.go`，这是一个标准的中间件实现。
+### 1. RequestID 中间件
+
+**文件**: `request_id.go`
+
+**作用**: 为每个请求生成唯一的 Request ID，便于日志追踪和问题排查。
+
+**使用**: 默认启用，自动注入到每个请求。
+
+### 2. CORS 中间件
+
+**文件**: `cors.go`
+
+**作用**: 处理跨域资源共享（CORS），允许前端从不同域名访问 API。
+
+**配置**: 在 `config/config.yaml` 中配置：
+
+```yaml
+cors:
+  enabled: true  # 是否启用
+  allow_origins:  # 允许的来源
+    - "*"  # 允许所有来源
+    # - "http://localhost:3000"  # 具体域名
+  allow_methods:  # 允许的方法
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+  allow_headers:  # 允许的请求头
+    - "Content-Type"
+    - "Authorization"
+```
+
+**使用**: 自动根据配置启用。
+
+## 📝 中间件开发示例
+
+参考 `request_id.go` 和 `cors.go`，这是标准的中间件实现。
 
 ### 基本结构
 
@@ -183,35 +219,35 @@ func (m *LoggerMiddleware) Handle() web.HandlerFunc {
 }
 ```
 
-### 4. CORS 中间件示例
+### 4. CORS 中间件 ✅ 已实现
 
-```go
-package middleware
+参考 `cors.go`，已经完整实现并集成到项目中。
 
-import "go-api-template/pkg/web"
+**功能特性：**
+- ✅ 支持配置化的跨域设置
+- ✅ 支持多个允许来源
+- ✅ 自动处理 OPTIONS 预检请求
+- ✅ 支持凭证（Credentials）
+- ✅ 预检请求缓存（24小时）
 
-// CORSMiddleware 跨域中间件
-type CORSMiddleware struct{}
+**配置示例：**
 
-func NewCORSMiddleware() *CORSMiddleware {
-    return &CORSMiddleware{}
-}
+```yaml
+# 开发环境：允许所有来源
+cors:
+  enabled: true
+  allow_origins: ["*"]
+  allow_methods: ["GET", "POST", "PUT", "DELETE"]
+  allow_headers: ["Content-Type", "Authorization"]
 
-func (m *CORSMiddleware) Handle() web.HandlerFunc {
-    return func(ctx *web.Context) {
-        ctx.Header("Access-Control-Allow-Origin", "*")
-        ctx.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        ctx.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
-        
-        // OPTIONS 请求直接返回
-        if ctx.Request.Method == "OPTIONS" {
-            ctx.AbortWithStatus(204)
-            return
-        }
-        
-        ctx.Next()
-    }
-}
+# 生产环境：限制特定域名
+cors:
+  enabled: true
+  allow_origins:
+    - "https://example.com"
+    - "https://app.example.com"
+  allow_methods: ["GET", "POST", "PUT", "DELETE"]
+  allow_headers: ["Content-Type", "Authorization", "X-Request-ID"]
 ```
 
 ## 💡 最佳实践
@@ -311,10 +347,11 @@ wire.Build(
 - 防止 API 滥用
 - 保护服务器资源
 
-### 5. CORS - 跨域
+### 5. CORS - 跨域 ✅ 已集成
 
 - 处理跨域请求
-- 配置允许的域名和方法
+- 支持预检请求（OPTIONS）
+- 可配置允许的来源、方法、请求头
 
 ### 6. Logger - 请求日志
 
@@ -329,25 +366,31 @@ wire.Build(
 ```go
 package middleware
 
+import "go-api-template/pkg/config"
+
 // Middleware 中间件集合
 type Middleware struct {
-    RequestID  *RequestIDMiddleware
-    Auth       *AuthMiddleware
-    Permission *PermissionMiddleware
-    RateLimit  *RateLimitMiddleware
-    CORS       *CORSMiddleware
+    RequestID *RequestIDMiddleware
+    CORS      *CORSMiddleware
 }
 
 // NewMiddleware 创建中间件集合
-func NewMiddleware(
-    tokenService *service.TokenService,
-) *Middleware {
+func NewMiddleware(cfg *config.Config) *Middleware {
+    // 根据配置创建 CORS 中间件
+    var corsMiddleware *CORSMiddleware
+    if cfg.CORS.Enabled {
+        corsMiddleware = NewCORSMiddleware(&CORSConfig{
+            AllowOrigins: cfg.CORS.AllowOrigins,
+            AllowMethods: cfg.CORS.AllowMethods,
+            AllowHeaders: cfg.CORS.AllowHeaders,
+        })
+    } else {
+        corsMiddleware = NewDefaultCORSMiddleware()
+    }
+
     return &Middleware{
-        RequestID:  NewRequestIDMiddleware(),
-        Auth:       NewAuthMiddleware(tokenService),
-        Permission: NewPermissionMiddleware(),
-        RateLimit:  NewRateLimitMiddleware(),
-        CORS:       NewCORSMiddleware(),
+        RequestID: NewRequestIDMiddleware(),
+        CORS:      corsMiddleware,
     }
 }
 ```

@@ -13,6 +13,7 @@
 - 🗄️ **数据库 ORM** - GORM 支持 MySQL/PostgreSQL
 - 📦 **配置管理** - YAML 配置文件
 - 🎯 **Demo 示例** - 完整的 CRUD 实现
+- 🌐 **CORS 支持** - 可配置的跨域处理（已集成）
 
 ## 🚀 快速开始
 
@@ -353,6 +354,19 @@ logger:
   level: info             # debug, info, warn, error
   filename: logs/app.log
   console: true           # 是否输出到控制台
+
+cors:
+  enabled: true           # 是否启用 CORS
+  allow_origins:          # 允许的来源
+    - "*"                 # "*" 允许所有来源
+  allow_methods:          # 允许的 HTTP 方法
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+  allow_headers:          # 允许的请求头
+    - "Content-Type"
+    - "Authorization"
 ```
 
 **数据库设置：**
