@@ -1,4 +1,4 @@
-.PHONY: help wire build run test clean dev install lint fmt
+.PHONY: help wire build build-linux build-windows build-darwin build-all run test clean dev install lint fmt
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -36,11 +36,38 @@ wire: ## 生成 Wire 依赖注入代码
 	cd $(CMD_PATH) && $(WIRE)
 	@echo "✅ Wire 代码生成完成"
 
-build: wire ## 编译项目
-	@echo "🔨 编译项目..."
+build: wire ## 编译项目（当前平台）
+	@echo "🔨 编译项目（当前平台）..."
 	@mkdir -p bin
 	$(GO) build -o $(BINARY_PATH) ./$(CMD_PATH)
 	@echo "✅ 编译完成: $(BINARY_PATH)"
+
+build-linux: wire ## 编译 Linux amd64 可执行文件
+	@echo "🐧 编译 Linux 版本..."
+	@mkdir -p bin
+	GOOS=linux GOARCH=amd64 $(GO) build -o $(BINARY_PATH)-linux-amd64 ./$(CMD_PATH)
+	@echo "✅ 编译完成: $(BINARY_PATH)-linux-amd64"
+
+build-windows: wire ## 编译 Windows amd64 可执行文件
+	@echo "🪟 编译 Windows 版本..."
+	@mkdir -p bin
+	GOOS=windows GOARCH=amd64 $(GO) build -o $(BINARY_PATH)-windows-amd64.exe ./$(CMD_PATH)
+	@echo "✅ 编译完成: $(BINARY_PATH)-windows-amd64.exe"
+
+build-darwin: wire ## 编译 macOS amd64 可执行文件
+	@echo "🍎 编译 macOS 版本..."
+	@mkdir -p bin
+	GOOS=darwin GOARCH=amd64 $(GO) build -o $(BINARY_PATH)-darwin-amd64 ./$(CMD_PATH)
+	@echo "✅ 编译完成: $(BINARY_PATH)-darwin-amd64"
+
+build-all: wire ## 编译所有平台（linux / windows / darwin）
+	@echo "📦 编译所有平台..."
+	@mkdir -p bin
+	GOOS=linux   GOARCH=amd64 $(GO) build -o $(BINARY_PATH)-linux-amd64        ./$(CMD_PATH)
+	GOOS=windows GOARCH=amd64 $(GO) build -o $(BINARY_PATH)-windows-amd64.exe  ./$(CMD_PATH)
+	GOOS=darwin  GOARCH=amd64 $(GO) build -o $(BINARY_PATH)-darwin-amd64       ./$(CMD_PATH)
+	@echo "✅ 所有平台编译完成:"
+	@ls -lh bin/
 
 run: wire ## 运行项目
 	@echo "🚀 启动服务..."

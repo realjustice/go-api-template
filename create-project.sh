@@ -155,6 +155,10 @@ main() {
     [ -f "$TEMPLATE_DIR/Makefile" ] && cp "$TEMPLATE_DIR/Makefile" ./
     [ -f "$TEMPLATE_DIR/.gitignore" ] && cp "$TEMPLATE_DIR/.gitignore" ./
     
+    # 复制 cmd/server 下的入口与 wire 文件（保证与模板一致且参与后续路径替换）
+    [ -f "$TEMPLATE_DIR/cmd/server/main.go" ] && cp "$TEMPLATE_DIR/cmd/server/main.go" ./cmd/server/
+    [ -f "$TEMPLATE_DIR/cmd/server/wire.go" ] && cp "$TEMPLATE_DIR/cmd/server/wire.go" ./cmd/server/
+    
     # 复制 go.mod（保持依赖版本一致）
     print_info "复制依赖配置..."
     if [ -f "$TEMPLATE_DIR/go.mod" ]; then
@@ -175,209 +179,10 @@ main() {
         go mod init "$TEMP_MODULE"
     fi
     
-    # 替换导入路径为临时模块名
+    # 替换导入路径为临时模块名（含已复制的 cmd/server/main.go、wire.go）
     print_info "配置导入路径..."
     find . -type f -name "*.go" -exec sed -i '' "s|go-api-template|$TEMP_MODULE|g" {} + 2>/dev/null || \
     find . -type f -name "*.go" -exec sed -i "s|go-api-template|$TEMP_MODULE|g" {} +
-    
-    # 创建 main.go 和 wire.go
-    print_info "创建应用入口..."
-    
-    # 1. 创建 main.go
-    cat > cmd/server/main.go << 'MAINEOF'
-package main
-
-import (
-	"flag"
-	"fmt"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"MODULE_PATH/pkg/config"
-	"MODULE_PATH/pkg/logger"
-)
-
-func main() {
-	// 解析命令行参数
-	configPath := flag.String("config", "config/config.yaml", "配置文件路径")
-	flag.Parse()
-
-	// 加载配置
-	cfg, err := config.LoadConfig(*configPath)
-	if err != nil {
-		log.Fatalf("❌ 加载配置失败: %v", err)
-	}
-
-	// 初始化日志
-	_, err = logger.InitLogger(cfg)
-	if err != nil {
-		log.Fatalf("❌ 初始化日志失败: %v", err)
-	}
-	defer logger.Close()
-
-	logger.Info("🚀 应用启动中...")
-
-	// 初始化应用（通过 Wire 依赖注入）
-	router, cleanup, err := InitializeApp(*configPath)
-	if err != nil {
-		logger.Fatalf("❌ 初始化应用失败: %v", err)
-	}
-	defer cleanup()
-
-	// 服务器端口
-	port := fmt.Sprintf(":%d", cfg.Server.Port)
-
-	// 打印启动信息
-	fmt.Println()
-	fmt.Println("========================================")
-	fmt.Printf("  %s - 服务已启动\n", "API Server")
-	fmt.Println("========================================")
-	fmt.Printf("🌐 服务地址: http://localhost%s\n", port)
-	fmt.Printf("📚 API 端点:\n")
-	fmt.Printf("   - 健康检查:    GET  http://localhost%s/health\n", port)
-	fmt.Printf("   - Demo 列表:   GET  http://localhost%s/api/v1/demos\n", port)
-	fmt.Println("========================================")
-	fmt.Printf("💡 使用 Ctrl+C 停止服务\n")
-	fmt.Println()
-
-	logger.Infof("服务器启动在端口 %s", port)
-
-	// 启动服务器
-	go func() {
-		if err := router.Run(port); err != nil {
-			logger.Fatalf("❌ 服务器启动失败: %v", err)
-		}
-	}()
-
-	// 等待中断信号（优雅关闭）
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	logger.Info("⏳ 正在关闭服务器...")
-	fmt.Println()
-	fmt.Println("✅ 服务器已关闭")
-}
-MAINEOF
-
-    # 替换 main.go 中的 MODULE_PATH
-    sed -i '' "s|MODULE_PATH|$TEMP_MODULE|g" cmd/server/main.go 2>/dev/null || \
-    sed -i "s|MODULE_PATH|$TEMP_MODULE|g" cmd/server/main.go
-    
-    # 2. 创建 wire.go
-    cat > cmd/server/wire.go << 'WIREEOF'
-//go:build wireinject
-// +build wireinject
-
-package main
-
-import (
-	"MODULE_PATH/internal/controller"
-	"MODULE_PATH/internal/middleware"
-	"MODULE_PATH/internal/repository"
-	"MODULE_PATH/internal/service"
-	"MODULE_PATH/pkg/config"
-	"MODULE_PATH/pkg/database"
-	"MODULE_PATH/pkg/logger"
-	"MODULE_PATH/pkg/web"
-
-	"github.com/gin-gonic/gin"
-	"github.com/google/wire"
-	"go.uber.org/zap"
-)
-
-// InitializeApp 初始化应用
-func InitializeApp(configPath string) (*gin.Engine, func(), error) {
-	wire.Build(
-		// 配置
-		config.LoadConfig,
-
-		// 日志
-		logger.InitLogger,
-
-		// 数据库
-		database.NewMySQLDB,
-
-		// Repository - Demo 数据访问层
-		repository.NewDemoRepository,
-
-		// Service - Demo 业务逻辑层
-		service.NewDemoService,
-
-		// Controller - Demo 控制器
-		controller.NewDemoController,
-
-		// Middleware - 中间件
-		middleware.NewMiddleware,
-
-		// Router - 路由配置和清理函数
-		provideRouterAndCleanup,
-	)
-	return nil, nil, nil
-}
-
-// provideRouterAndCleanup 配置路由并提供清理函数
-func provideRouterAndCleanup(
-	cfg *config.Config,
-	demoCtrl *controller.DemoController,
-	mw *middleware.Middleware,
-	_ *zap.Logger, // 确保 logger 被初始化
-) (*gin.Engine, func()) {
-	router := provideRouter(cfg, demoCtrl, mw)
-	cleanup := func() {
-		logger.Close()
-	}
-	return router, cleanup
-}
-
-// provideRouter 配置路由
-func provideRouter(
-	cfg *config.Config,
-	demoCtrl *controller.DemoController,
-	mw *middleware.Middleware,
-) *gin.Engine {
-	// 设置 Gin 模式
-	gin.SetMode(cfg.Server.Mode)
-
-	r := gin.New()
-
-	// 全局中间件
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
-	r.Use(web.ToGinHandler(mw.RequestID.Handle()))
-
-	// 处理 404 错误
-	r.NoRoute(web.ToGinHandler(web.NotFoundHandler()))
-
-	// 处理 405 错误
-	r.NoMethod(web.ToGinHandler(web.MethodNotAllowedHandler()))
-
-	// 健康检查（无需鉴权）
-	r.GET("/health", web.ToGinHandler(web.HealthHandler()))
-
-	// API v1 路由组
-	api := r.Group("/api/v1")
-	{
-		// Demo CRUD 示例接口
-		demos := api.Group("/demos")
-		{
-			demos.GET("", web.ToGinHandler(demoCtrl.GetAll))        // 获取所有 Demo
-			demos.GET("/:id", web.ToGinHandler(demoCtrl.GetByID))   // 获取单个 Demo
-			demos.POST("", web.ToGinHandler(demoCtrl.Create))       // 创建 Demo
-			demos.PUT("/:id", web.ToGinHandler(demoCtrl.Update))    // 更新 Demo
-			demos.DELETE("/:id", web.ToGinHandler(demoCtrl.Delete)) // 删除 Demo
-		}
-	}
-
-	return r
-}
-WIREEOF
-
-    # 替换 wire.go 中的 MODULE_PATH
-    sed -i '' "s|MODULE_PATH|$TEMP_MODULE|g" cmd/server/wire.go 2>/dev/null || \
-    sed -i "s|MODULE_PATH|$TEMP_MODULE|g" cmd/server/wire.go
     
     # 安装依赖（使用临时模块名，不会触发网络下载）
     print_info "下载依赖..."
@@ -397,6 +202,13 @@ WIREEOF
         # 替换所有 .go 文件中的导入路径
         find . -type f -name "*.go" -exec sed -i '' "s|$TEMP_MODULE|$MODULE_PATH|g" {} + 2>/dev/null || \
         find . -type f -name "*.go" -exec sed -i "s|$TEMP_MODULE|$MODULE_PATH|g" {} +
+        
+        # 显式替换 cmd/server 下的 main.go、wire.go，确保引用路径被正确替换
+        for f in cmd/server/main.go cmd/server/wire.go; do
+            if [ -f "$f" ]; then
+                sed -i '' "s|$TEMP_MODULE|$MODULE_PATH|g" "$f" 2>/dev/null || sed -i "s|$TEMP_MODULE|$MODULE_PATH|g" "$f"
+            fi
+        done
         
         print_success "模块路径已更新"
     fi
